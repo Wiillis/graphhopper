@@ -1,5 +1,7 @@
 name: Build and Test
+
 on: push
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -7,12 +9,20 @@ jobs:
       fail-fast: false
       matrix:
         java-version: [ 24, 25-ea ]
+
     steps:
+      # Checkout the code
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # Needed to commit baseline updates
+
+      # Setup Java version
       - uses: actions/setup-java@v4
         with:
           java-version: ${{ matrix.java-version }}
           distribution: temurin
+
+      # Cache Maven
       - name: Cache Maven artifacts
         uses: actions/cache@v4
         with:
@@ -20,6 +30,8 @@ jobs:
           key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
           restore-keys: |
             ${{ runner.os }}-maven-
+
+      # Cache Node
       - name: Cache node
         uses: actions/cache@v4
         with:
@@ -27,6 +39,8 @@ jobs:
           key: ${{ runner.os }}-node-${{ hashFiles('**/pom.xml') }}
           restore-keys: |
             ${{ runner.os}}-node-
+
+      # Cache node_modules
       - name: Cache node_modules
         uses: actions/cache@v4
         with:
@@ -34,6 +48,61 @@ jobs:
           key: ${{ runner.os }}-node-${{ hashFiles('**/pom.xml', '**/package.json') }}
           restore-keys: |
             ${{ runner.os}}-node_modules-
+
+      # Standard test build (existing)
       - name: Build ${{ matrix.java-version }}
         run: mvn -B clean test
 
+      # -------- MUTATION TESTING ---------
+
+      - name: Run PIT mutation testing
+        run: mvn -B org.pitest:pitest-maven:mutationCoverage
+
+      - name: Extract mutation score
+        id: score
+        run: |
+          REPORT_FILE=$(ls target/pit-reports/*/mutations.xml | head -n 1)
+          SCORE=$(grep -oP 'mutationScore="\K[0-9.]+' "$REPORT_FILE" | head -n 1)
+          echo "score=$SCORE" >> $GITHUB_OUTPUT
+          echo "Mutation score found: $SCORE"
+
+      - name: Load baseline
+        id: baseline
+        run: |
+          if [ -f .mutation-baseline ]; then
+            BASELINE=$(cat .mutation-baseline)
+          else
+            BASELINE=0
+          fi
+          echo "baseline=$BASELINE" >> $GITHUB_OUTPUT
+          echo "Using baseline: $BASELINE"
+
+      - name: Compare score to baseline
+        id: compare
+        run: |
+          SCORE=${{ steps.score.outputs.score }}
+          BASELINE=${{ steps.baseline.outputs.baseline }}
+          
+          if (( $(echo "$SCORE < $BASELINE" | bc -l) )); then
+            echo "Mutation score worse than baseline."
+            exit 0   # success → workflow continues
+          else
+            echo "Score >= baseline → ok."
+            exit 1   # failure → skip rickroll
+        continue-on-error: true
+
+      # RICKROLL IF SCORE WORSE THAN BASELINE
+      - name: Rickroll (mutation score regression)
+        if: steps.compare.outcome == 'success'
+        uses: TheDrizzyWay/random-rickroll@main
+
+      # UPDATE BASELINE IF SCORE >= BASELINE
+      - name: Update mutation baseline
+        if: steps.compare.outcome != 'success'
+        run: |
+          echo "${{ steps.score.outputs.score }}" > .mutation-baseline
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add .mutation-baseline
+          git commit -m "Auto-update mutation baseline → ${{ steps.score.outputs.score }}"
+          git push
