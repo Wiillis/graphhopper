@@ -177,8 +177,8 @@
                             <param>com.graphhopper.routing.Router</param>
                         </targetClasses>
                         <targetTests>
-                            <param>com.graphhopper.routing.CHPathCalculator</param>
-                            <param>com.graphhopper.routing.FlexiblePathCalculator</param>
+                            <param>com.graphhopper.routing.CHPathCalculatorMockitoTest</param>
+                            <param>com.graphhopper.routing.FlexiblePathCalculatorMockitoTest</param>
                         </targetTests>
                         <outputFormats>
                             <outputFormat>XML</outputFormat>
