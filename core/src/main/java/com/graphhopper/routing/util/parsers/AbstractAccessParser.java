@@ -49,10 +49,7 @@ public abstract class AbstractAccessParser implements TagParser {
         restrictedValues.add("restricted");
         restrictedValues.add("military");
         restrictedValues.add("emergency");
-        restrictedValues.add("unknown");
-
         restrictedValues.add("private");
-        restrictedValues.add("service");
         restrictedValues.add("permit");
     }
 
@@ -66,11 +63,12 @@ public abstract class AbstractAccessParser implements TagParser {
 
     protected void blockPrivate(boolean blockPrivate) {
         if (!blockPrivate) {
-            if (!restrictedValues.remove("private") || !restrictedValues.remove("permit") || !restrictedValues.remove("service"))
-                throw new IllegalStateException("no 'private', 'permit' or 'service' value found in restrictedValues");
+            if (!restrictedValues.remove("private"))
+                throw new IllegalStateException("no 'private' found in restrictedValues");
+            if (!restrictedValues.remove("permit"))
+                throw new IllegalStateException("no 'permit' found in restrictedValues");
             allowedValues.add("private");
             allowedValues.add("permit");
-            allowedValues.add("service");
         }
     }
 

@@ -34,7 +34,6 @@ import com.graphhopper.util.GHUtility;
 import com.graphhopper.util.Helper;
 import org.junit.jupiter.api.Test;
 
-import static com.graphhopper.util.GHUtility.updateDistancesFor;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class HeadingResolverTest {
@@ -117,10 +116,11 @@ class HeadingResolverTest {
         DecimalEncodedValue speedEnc = new DecimalEncodedValueImpl("speed", 5, 5, false);
         EncodingManager em = EncodingManager.start().add(accessEnc).add(speedEnc).build();
         BaseGraph graph = new BaseGraph.Builder(em).create();
+        NodeAccess na = graph.getNodeAccess();
+        na.setNode(0, 48.8611, 1.2194);
+        na.setNode(1, 48.8538, 2.3950);
 
-        EdgeIteratorState edge = GHUtility.setSpeed(60, true, true, accessEnc, speedEnc, graph.edge(0, 1).setDistance(0));
-        updateDistancesFor(graph, 0, 48.8611, 1.2194);
-        updateDistancesFor(graph, 1, 48.8538, 2.3950);
+        EdgeIteratorState edge = GHUtility.setSpeed(60, true, true, accessEnc, speedEnc, graph.edge(0, 1).setDistance(10));
         Snap snap = createSnap(edge, 48.859, 2.00, 0);
         QueryGraph queryGraph = QueryGraph.create(graph, snap);
         HeadingResolver resolver = new HeadingResolver(queryGraph);

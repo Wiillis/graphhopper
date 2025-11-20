@@ -184,7 +184,7 @@ public class QueryRoutingCHGraph implements RoutingCHGraph {
             @Override
             public void apply(int node, QueryOverlay.EdgeChanges edgeChanges) {
                 List<RoutingCHEdgeIteratorState> virtualEdges = new ArrayList<>();
-                for (VirtualEdgeIteratorState v : edgeChanges.getAdditionalEdges()) {
+                for (EdgeIteratorState v : edgeChanges.getAdditionalEdges()) {
                     assert v.getBaseNode() == node;
                     int edge = v.getEdge();
                     if (queryGraph.isVirtualEdge(edge)) {
@@ -215,7 +215,7 @@ public class QueryRoutingCHGraph implements RoutingCHGraph {
         final int virtualNodes = queryOverlay.getVirtualNodes().size();
         final List<List<RoutingCHEdgeIteratorState>> virtualEdgesAtVirtualNodes = new ArrayList<>(virtualNodes);
         for (int i = 0; i < virtualNodes; i++) {
-            List<RoutingCHEdgeIteratorState> virtualEdges = List.of(
+            List<RoutingCHEdgeIteratorState> virtualEdges = Arrays.<RoutingCHEdgeIteratorState>asList(
                     buildVirtualCHEdgeState(queryOverlay.getVirtualEdges().get(i * 4 + SNAP_BASE)),
                     buildVirtualCHEdgeState(queryOverlay.getVirtualEdges().get(i * 4 + SNAP_ADJ))
             );
@@ -229,7 +229,7 @@ public class QueryRoutingCHGraph implements RoutingCHGraph {
         return buildVirtualCHEdgeState(virtualEdgeState, virtualCHEdge);
     }
 
-    private VirtualCHEdgeIteratorState buildVirtualCHEdgeState(VirtualEdgeIteratorState edgeState, int edgeID) {
+    private VirtualCHEdgeIteratorState buildVirtualCHEdgeState(EdgeIteratorState edgeState, int edgeID) {
         double fwdWeight = weighting.calcEdgeWeight(edgeState, false);
         double bwdWeight = weighting.calcEdgeWeight(edgeState, true);
         return new VirtualCHEdgeIteratorState(edgeID, edgeState.getEdge(), edgeState.getBaseNode(), edgeState.getAdjNode(),

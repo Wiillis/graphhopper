@@ -63,17 +63,11 @@ public class CHStorage {
     private int nodeCount = -1;
 
     private boolean edgeBased;
-    // some shortcut weights are under the minimum storable weight, and we count them here
-    private int numShortcutsUnderMinWeight;
-    // some shortcut weights are over the maximum storable weight, and we count them here
-    private int numShortcutsOverMaxWeight;
+    // some shortcuts exceed the maximum storable weight, and we count them here
+    private int numShortcutsExceedingWeight;
 
     // use this to report shortcuts with too small weights
-    private Consumer<LowWeightShortcut> lowWeightShortcutConsumer;
-    private Consumer<HighWeightShortcut> highWeightShortcutConsumer;
-
-    private double minValidWeight = Double.POSITIVE_INFINITY;
-    private double maxValidWeight = Double.NEGATIVE_INFINITY;
+    private Consumer<LowWeightShortcut> lowShortcutWeightConsumer;
 
     public static CHStorage fromGraph(BaseGraph baseGraph, CHConfig chConfig) {
         String name = chConfig.getName();
@@ -81,21 +75,13 @@ public class CHStorage {
         if (!baseGraph.isFrozen())
             throw new IllegalStateException("graph must be frozen before we can create ch graphs");
         CHStorage store = new CHStorage(baseGraph.getDirectory(), name, baseGraph.getSegmentSize(), edgeBased);
-        store.setLowWeightShortcutConsumer(s -> {
+        store.setLowShortcutWeightConsumer(s -> {
             // we just log these to find mapping errors
             NodeAccess nodeAccess = baseGraph.getNodeAccess();
             LOGGER.warn("Setting weights smaller than " + s.minWeight + " is not allowed. " +
                     "You passed: " + s.weight + " for the shortcut " +
-                    " nodeA (" + nodeAccess.getLat(s.nodeA) + "," + nodeAccess.getLon(s.nodeA) + ")" +
-                    " nodeB (" + nodeAccess.getLat(s.nodeB) + "," + nodeAccess.getLon(s.nodeB) + ")");
-        });
-        store.setHighWeightShortcutConsumer(s -> {
-            // we just log these to find potential routing errors
-            NodeAccess nodeAccess = baseGraph.getNodeAccess();
-            LOGGER.warn("Setting weights larger than " + s.maxWeight + " results in infinite-weight shortcuts. " +
-                    "You passed: " + s.weight + " for the shortcut " +
-                    " nodeA (" + nodeAccess.getLat(s.nodeA) + "," + nodeAccess.getLon(s.nodeA) + ")" +
-                    " nodeB (" + nodeAccess.getLat(s.nodeB) + "," + nodeAccess.getLon(s.nodeB) + ")");
+                    " nodeA (" + nodeAccess.getLat(s.nodeA) + "," + nodeAccess.getLon(s.nodeA) +
+                    " nodeB " + nodeAccess.getLat(s.nodeB) + "," + nodeAccess.getLon(s.nodeB));
         });
         // we use a rather small value here. this might result in more allocations later, but they should
         // not matter that much. if we expect a too large value the shortcuts DataAccess will end up
@@ -130,12 +116,8 @@ public class CHStorage {
     /**
      * Sets a callback called for shortcuts that are below the minimum weight. e.g. used to find/log mapping errors
      */
-    public void setLowWeightShortcutConsumer(Consumer<LowWeightShortcut> lowWeightShortcutConsumer) {
-        this.lowWeightShortcutConsumer = lowWeightShortcutConsumer;
-    }
-
-    public void setHighWeightShortcutConsumer(Consumer<HighWeightShortcut> highWeightShortcutConsumer) {
-        this.highWeightShortcutConsumer = highWeightShortcutConsumer;
+    public void setLowShortcutWeightConsumer(Consumer<LowWeightShortcut> lowWeightShortcutConsumer) {
+        this.lowShortcutWeightConsumer = lowWeightShortcutConsumer;
     }
 
     /**
@@ -168,9 +150,8 @@ public class CHStorage {
         shortcuts.setHeader(0, Constants.VERSION_SHORTCUT);
         shortcuts.setHeader(4, shortcutCount);
         shortcuts.setHeader(8, shortcutEntryBytes);
-        shortcuts.setHeader(12, numShortcutsUnderMinWeight);
-        shortcuts.setHeader(16, numShortcutsOverMaxWeight);
-        shortcuts.setHeader(20, edgeBased ? 1 : 0);
+        shortcuts.setHeader(12, numShortcutsExceedingWeight);
+        shortcuts.setHeader(16, edgeBased ? 1 : 0);
         shortcuts.flush();
     }
 
@@ -189,9 +170,8 @@ public class CHStorage {
         GHUtility.checkDAVersion(shortcuts.getName(), Constants.VERSION_SHORTCUT, shortcutsVersion);
         shortcutCount = shortcuts.getHeader(4);
         shortcutEntryBytes = shortcuts.getHeader(8);
-        numShortcutsUnderMinWeight = shortcuts.getHeader(12);
-        numShortcutsOverMaxWeight = shortcuts.getHeader(16);
-        edgeBased = shortcuts.getHeader(20) == 1;
+        numShortcutsExceedingWeight = shortcuts.getHeader(12);
+        edgeBased = shortcuts.getHeader(16) == 1;
 
         return true;
     }
@@ -222,14 +202,8 @@ public class CHStorage {
     private int shortcut(int nodeA, int nodeB, int accessFlags, double weight, int skip1, int skip2) {
         if (shortcutCount == Integer.MAX_VALUE)
             throw new IllegalStateException("Maximum shortcut count exceeded: " + shortcutCount);
-        if (lowWeightShortcutConsumer != null && weight < MIN_WEIGHT)
-            lowWeightShortcutConsumer.accept(new LowWeightShortcut(nodeA, nodeB, shortcutCount, weight, MIN_WEIGHT));
-        if (highWeightShortcutConsumer != null && weight >= MAX_WEIGHT)
-            highWeightShortcutConsumer.accept(new HighWeightShortcut(nodeA, nodeB, shortcutCount, weight, MAX_WEIGHT));
-        if (weight >= MIN_WEIGHT && weight < MAX_WEIGHT) {
-            minValidWeight = Math.min(weight, minValidWeight);
-            maxValidWeight = Math.max(weight, maxValidWeight);
-        }
+        if (lowShortcutWeightConsumer != null && weight < MIN_WEIGHT)
+            lowShortcutWeightConsumer.accept(new LowWeightShortcut(nodeA, nodeB, shortcutCount, weight, MIN_WEIGHT));
         long shortcutPointer = (long) shortcutCount * shortcutEntryBytes;
         shortcutCount++;
         shortcuts.ensureCapacity((long) shortcutCount * shortcutEntryBytes);
@@ -411,24 +385,8 @@ public class CHStorage {
         return nodesCH.getCapacity() + shortcuts.getCapacity();
     }
 
-    public int getMB() {
-        return (int) ((shortcutEntryBytes * (long) shortcutCount + nodeCHEntryBytes * (long) nodeCount) / 1024 / 1024);
-    }
-
-    public double getMinValidWeight() {
-        return minValidWeight;
-    }
-
-    public double getMaxValidWeight() {
-        return maxValidWeight;
-    }
-
-    public int getNumShortcutsUnderMinWeight() {
-        return numShortcutsUnderMinWeight;
-    }
-
-    public int getNumShortcutsOverMaxWeight() {
-        return numShortcutsOverMaxWeight;
+    public int getNumShortcutsExceedingWeight() {
+        return numShortcutsExceedingWeight;
     }
 
     public String toDetailsString() {
@@ -444,12 +402,10 @@ public class CHStorage {
     private int weightFromDouble(double weight) {
         if (weight < 0)
             throw new IllegalArgumentException("weight cannot be negative but was " + weight);
-        if (weight < MIN_WEIGHT) {
-            numShortcutsUnderMinWeight++;
+        if (weight < MIN_WEIGHT)
             weight = MIN_WEIGHT;
-        }
         if (weight >= MAX_WEIGHT) {
-            numShortcutsOverMaxWeight++;
+            numShortcutsExceedingWeight++;
             return (int) MAX_STORED_INTEGER_WEIGHT; // negative
         } else
             return (int) Math.round(weight * WEIGHT_FACTOR);
@@ -481,22 +437,6 @@ public class CHStorage {
             this.shortcut = shortcut;
             this.weight = weight;
             this.minWeight = minWeight;
-        }
-    }
-
-    public static class HighWeightShortcut {
-        int nodeA;
-        int nodeB;
-        int shortcut;
-        double weight;
-        double maxWeight;
-
-        public HighWeightShortcut(int nodeA, int nodeB, int shortcut, double weight, double maxWeight) {
-            this.nodeA = nodeA;
-            this.nodeB = nodeB;
-            this.shortcut = shortcut;
-            this.weight = weight;
-            this.maxWeight = maxWeight;
         }
     }
 }

@@ -2,8 +2,6 @@ package com.graphhopper.reader.dem;
 
 import com.graphhopper.util.DistanceCalcEarth;
 import com.graphhopper.util.PointList;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Elevation data is read from DEM tiles that have data points for rectangular tiles usually having an
@@ -17,7 +15,6 @@ import org.slf4j.LoggerFactory;
  * @author Peter Karich
  */
 public class EdgeElevationSmoothingRamer {
-
     /**
      * This method removes elevation fluctuations up to maxElevationDelta. Compared to the smoothMovingAverage function
      * this method has the advantage that the maximum slope of a PointList never increases (max(abs(slope_i))).
@@ -30,28 +27,20 @@ public class EdgeElevationSmoothingRamer {
      * point of the specified pointList
      */
     public static void smooth(PointList pointList, double maxElevationDelta) {
-        internSmooth(pointList, 0, pointList.size() - 1, maxElevationDelta, DistanceCalcEarth.calcDistance(pointList, false), 0);
+        internSmooth(pointList, 0, pointList.size() - 1, maxElevationDelta);
     }
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(EdgeElevationSmoothingRamer.class);
-
-    static void internSmooth(PointList pointList, int fromIndex, int lastIndex, double maxElevationDelta, double fullDist2D, int depth) {
+    static void internSmooth(PointList pointList, int fromIndex, int lastIndex, double maxElevationDelta) {
         if (lastIndex - fromIndex < 2)
             return;
 
-        if (depth > 1000) {
-            // implement stack-based version if this is really a problem in real world, see #3202
-            LOGGER.warn("max recursion depth reached, remaining point list: " + pointList);
-            return;
-        }
-
         double prevLat = pointList.getLat(fromIndex);
         double prevLon = pointList.getLon(fromIndex);
+        double dist2D = DistanceCalcEarth.DIST_EARTH.calcDist(prevLat, prevLon, pointList.getLat(lastIndex), pointList.getLon(lastIndex));
 
         // in rare cases the first point can be identical to the last for e.g. areas (or for things like man_made=pier which are not explicitly excluded from adding edges)
-        double averageSlope = fullDist2D == 0 ? 0 : (pointList.getEle(lastIndex) - pointList.getEle(fromIndex)) / fullDist2D;
+        double averageSlope = dist2D == 0 ? 0 : (pointList.getEle(lastIndex) - pointList.getEle(fromIndex)) / dist2D;
         double prevAverageSlopeEle = pointList.getEle(fromIndex);
-        double startDist = 0;
         double maxEleDelta = -1;
         int indexWithMaxDelta = -1;
         for (int i = fromIndex + 1; i < lastIndex; i++) {
@@ -59,7 +48,6 @@ public class EdgeElevationSmoothingRamer {
             double lon = pointList.getLon(i);
             double ele = pointList.getEle(i);
             double tmpDist2D = DistanceCalcEarth.DIST_EARTH.calcDist(prevLat, prevLon, lat, lon);
-            startDist += tmpDist2D;
             double eleFromAverageSlope = averageSlope * tmpDist2D + prevAverageSlopeEle;
             double tmpEleDelta = Math.abs(ele - eleFromAverageSlope);
             if (maxEleDelta < tmpEleDelta) {
@@ -71,7 +59,7 @@ public class EdgeElevationSmoothingRamer {
             prevLon = lon;
         }
 
-        // The limit for the maximum elevation change filters away especially the smaller high frequent elevation changes,
+        // the maximum elevation change limit filters away especially the smaller high frequent elevation changes,
         // which is likely the "noise" that we want to remove.
         if (indexWithMaxDelta < 0 || maxElevationDelta > maxEleDelta) {
             prevLat = pointList.getLat(fromIndex);
@@ -88,8 +76,8 @@ public class EdgeElevationSmoothingRamer {
                 prevLon = lon;
             }
         } else {
-            internSmooth(pointList, fromIndex, indexWithMaxDelta, maxElevationDelta, startDist, depth + 1);
-            internSmooth(pointList, indexWithMaxDelta, lastIndex, maxElevationDelta, Math.max(0, fullDist2D - startDist), depth + 1);
+            internSmooth(pointList, fromIndex, indexWithMaxDelta, maxElevationDelta);
+            internSmooth(pointList, indexWithMaxDelta, lastIndex, maxElevationDelta);
         }
     }
 }

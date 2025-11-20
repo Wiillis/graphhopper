@@ -19,8 +19,7 @@
 package com.graphhopper;
 
 import com.fasterxml.jackson.annotation.JsonAnySetter;
-import com.fasterxml.jackson.annotation.JsonSetter;
-import com.fasterxml.jackson.annotation.Nulls;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.graphhopper.config.CHProfile;
 import com.graphhopper.config.LMProfile;
 import com.graphhopper.config.Profile;
@@ -68,7 +67,6 @@ public class GraphHopperConfig {
         return profiles;
     }
 
-    @JsonSetter(nulls = Nulls.AS_EMPTY)
     public GraphHopperConfig setProfiles(List<Profile> profiles) {
         this.profiles = profiles;
         return this;
@@ -78,7 +76,7 @@ public class GraphHopperConfig {
         return chProfiles;
     }
 
-    @JsonSetter(value = "profiles_ch", nulls = Nulls.AS_EMPTY)
+    @JsonProperty("profiles_ch")
     public GraphHopperConfig setCHProfiles(List<CHProfile> chProfiles) {
         this.chProfiles = chProfiles;
         return this;
@@ -88,7 +86,7 @@ public class GraphHopperConfig {
         return lmProfiles;
     }
 
-    @JsonSetter(value = "profiles_lm", nulls = Nulls.AS_EMPTY)
+    @JsonProperty("profiles_lm")
     public GraphHopperConfig setLMProfiles(List<LMProfile> lmProfiles) {
         this.lmProfiles = lmProfiles;
         return this;

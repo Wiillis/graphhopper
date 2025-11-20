@@ -65,7 +65,8 @@ public class FlexiblePathCalculator implements PathCalculator {
         // this compatible with edge-based routing we would have to use edge keys instead of edge ids. either way a
         // better approach seems to be making the weighting (or the algorithm for that matter) aware of the unfavored
         // edges directly without changing the graph
-        queryGraph.unfavorVirtualEdges(edgeRestrictions.getUnfavoredEdges());
+        for (IntCursor c : edgeRestrictions.getUnfavoredEdges())
+            queryGraph.unfavorVirtualEdge(c.value);
 
         List<Path> paths;
         if (edgeRestrictions.getSourceOutEdge() != ANY_EDGE || edgeRestrictions.getTargetInEdge() != ANY_EDGE) {

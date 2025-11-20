@@ -108,27 +108,31 @@ public class QueryGraph implements Graph {
         return nodeId >= baseNodes;
     }
 
-    /**
-     * Assigns the 'unfavored' flag to the given virtual edges (for both directions)
-     */
     public void unfavorVirtualEdges(IntArrayList edgeIds) {
         for (IntCursor c : edgeIds) {
-            int virtualEdgeId = c.value;
-            if (!isVirtualEdge(virtualEdgeId))
-                return;
-            VirtualEdgeIteratorState edge = getVirtualEdge(getInternalVirtualEdgeId(virtualEdgeId));
-            edge.setUnfavored(true);
-            unfavoredEdges.add(edge);
-            // we have to set the unfavored flag also for the virtual edge state that is used when we discover the same edge
-            // from the adjacent node. note that the unfavored flag will be set for both 'directions' of the same edge state.
-            VirtualEdgeIteratorState reverseEdge = getVirtualEdge(getPosOfReverseEdge(getInternalVirtualEdgeId(virtualEdgeId)));
-            reverseEdge.setUnfavored(true);
-            unfavoredEdges.add(reverseEdge);
+            unfavorVirtualEdge(c.value);
         }
     }
 
     /**
-     * Returns all virtual edges that have been unfavored via {@link #unfavorVirtualEdges(IntArrayList)}
+     * Assigns the 'unfavored' flag to a virtual edge (for both directions)
+     */
+    public void unfavorVirtualEdge(int virtualEdgeId) {
+        if (!isVirtualEdge(virtualEdgeId))
+            return;
+        VirtualEdgeIteratorState edge = getVirtualEdge(getInternalVirtualEdgeId(virtualEdgeId));
+        edge.setUnfavored(true);
+        unfavoredEdges.add(edge);
+        // we have to set the unfavored flag also for the virtual edge state that is used when we discover the same edge
+        // from the adjacent node. note that the unfavored flag will be set for both 'directions' of the same edge state.
+        VirtualEdgeIteratorState reverseEdge = getVirtualEdge(getPosOfReverseEdge(getInternalVirtualEdgeId(virtualEdgeId)));
+        reverseEdge.setUnfavored(true);
+        unfavoredEdges.add(reverseEdge);
+    }
+
+    /**
+     * Returns all virtual edges that have been unfavored via
+     * {@link #unfavorVirtualEdge(int)} or {@link #unfavorVirtualEdges(IntArrayList)}
      */
     public Set<EdgeIteratorState> getUnfavoredVirtualEdges() {
         // Need to create a new set to convert Set<VirtualEdgeIteratorState> to

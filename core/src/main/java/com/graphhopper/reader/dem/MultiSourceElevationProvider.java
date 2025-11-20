@@ -50,12 +50,7 @@ public class MultiSourceElevationProvider extends TileBasedElevationProvider {
     public double getEle(double lat, double lon) {
         // Sometimes the cgiar data north of 59.999 equals 0
         if (lat < 59.999 && lat > -56) {
-            double ele = srtmProvider.getEle(lat, lon);
-            if (Double.isNaN(ele))  {
-                // If the SRTM data is not available, use the global provider
-                ele = globalProvider.getEle(lat, lon);
-            }
-            return ele;
+            return srtmProvider.getEle(lat, lon);
         }
         return globalProvider.getEle(lat, lon);
     }

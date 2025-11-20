@@ -92,11 +92,6 @@ public class SpeedWeighting implements Weighting {
     }
 
     @Override
-    public String toString() {
-        return getName();
-    }
-
-    @Override
     public String getName() {
         return "speed";
     }

@@ -424,7 +424,7 @@ public class GraphHopperOSMTest {
     }
 
     @Test
-    public void testUnloadProfile() {
+    public void testNothingHappensWhenProfilesAreChangedForLoad() {
         instance = new GraphHopper().init(
                         new GraphHopperConfig().
                                 putObject("datareader.file", testOsm3).
@@ -439,7 +439,7 @@ public class GraphHopperOSMTest {
         assertEquals(5, instance.getBaseGraph().getNodes());
         instance.close();
 
-        // we can run GH without the car profile
+        // the profiles must be the same
         GraphHopper tmpGH = new GraphHopper().init(
                         new GraphHopperConfig().
                                 putObject("datareader.file", testOsm3).
@@ -448,9 +448,10 @@ public class GraphHopperOSMTest {
                                 setProfiles(List.of(
                                         TestProfiles.constantSpeed("foot")
                                 ))).
+                setOSMFile(testOsm3).
                 setGraphHopperLocation(ghLoc);
-        tmpGH.load();
-        assertEquals(5, instance.getBaseGraph().getNodes());
+        IllegalStateException e = assertThrows(IllegalStateException.class, tmpGH::load);
+        assertTrue(e.getMessage().contains("Profiles do not match"), e.getMessage());
 
         // different encoded values do not matter, since they are ignored when loading the graph anyway
         instance = new GraphHopper().init(
@@ -460,8 +461,10 @@ public class GraphHopperOSMTest {
                                 putObject("graph.encoded_values", "road_class").
                                 putObject("import.osm.ignored_highways", "").
                                 setProfiles(List.of(
+                                        TestProfiles.constantSpeed("foot"),
                                         TestProfiles.constantSpeed("car")
                                 ))).
+                setOSMFile(testOsm3).
                 setGraphHopperLocation(ghLoc);
         instance.load();
         assertEquals(5, instance.getBaseGraph().getNodes());
@@ -768,7 +771,7 @@ public class GraphHopperOSMTest {
                     TestProfiles.constantSpeed("bike2", 110)
             ));
             IllegalStateException e = assertThrows(IllegalStateException.class, hopper::importOrLoad);
-            assertTrue(e.getMessage().contains("Profile 'bike2' does not match"), e.getMessage());
+            assertTrue(e.getMessage().contains("Profiles do not match"), e.getMessage());
             hopper.close();
         }
         {
@@ -779,17 +782,17 @@ public class GraphHopperOSMTest {
                     TestProfiles.constantSpeed("bike3", 110)
             ));
             IllegalStateException e = assertThrows(IllegalStateException.class, hopper::importOrLoad);
-            assertTrue(e.getMessage().contains("You cannot add new profiles to the loaded graph. Profile 'bike3' is new"), e.getMessage());
+            assertTrue(e.getMessage().contains("Profiles do not match"), e.getMessage());
             hopper.close();
         }
         {
-            // disabling a profile by not 'loading' it is ok
+            // problem: we remove a profile, which would technically be possible, but does not save memory either. it
+            //          could be useful to disable a profile, but currently we just force a new import.
             GraphHopper hopper = createHopperWithProfiles(List.of(
-                    TestProfiles.constantSpeed("bike2", 120)
+                    TestProfiles.constantSpeed("bike1", 60)
             ));
-            hopper.importOrLoad();
-            assertEquals(1, hopper.getProfiles().size());
-            assertEquals("bike2", hopper.getProfiles().get(0).getName());
+            IllegalStateException e = assertThrows(IllegalStateException.class, hopper::importOrLoad);
+            assertTrue(e.getMessage().contains("Profiles do not match"), e.getMessage());
             hopper.close();
         }
     }

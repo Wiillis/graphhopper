@@ -2,7 +2,7 @@ package com.graphhopper.routing.weighting.custom;
 
 import java.util.Set;
 
-public class ParseResult {
+class ParseResult {
     StringBuilder converted;
     boolean ok;
     String invalidMessage;
