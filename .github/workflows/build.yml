@@ -1,29 +1,32 @@
-name: Build and Test
+name: Graphhopper Build & Mutation
 
 on: push
 
+permissions:
+  contents: write   # Needed to commit auto-updated mutation baseline
+
 jobs:
-  build:
+  compile-and-test:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        java-version: [ 24, 25-ea ]
+        java-ver: [ 24, 25-ea ]
 
     steps:
-      # Checkout the code
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0   # Needed to commit baseline updates
+      # Checkout code
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      # Setup Java version
-      - uses: actions/setup-java@v4
+      # Setup Java
+      - name: Set up Java ${{ matrix.java-ver }}
+        uses: actions/setup-java@v4
         with:
-          java-version: ${{ matrix.java-version }}
+          java-version: ${{ matrix.java-ver }}
           distribution: temurin
 
-      # Cache Maven
-      - name: Cache Maven artifacts
+      # Cache Maven dependencies
+      - name: Cache Maven repository
         uses: actions/cache@v4
         with:
           path: ~/.m2/repository
@@ -31,91 +34,90 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-maven-
 
-      # Cache Node
-      - name: Cache node
+      # Cache Node / npm
+      - name: Cache web node folder
         uses: actions/cache@v4
         with:
           path: web-bundle/node
           key: ${{ runner.os }}-node-${{ hashFiles('**/pom.xml') }}
           restore-keys: |
-            ${{ runner.os}}-node-
+            ${{ runner.os }}-node-
 
-      # Cache node_modules
       - name: Cache node_modules
         uses: actions/cache@v4
         with:
           path: web-bundle/node_modules
-          key: ${{ runner.os }}-node-${{ hashFiles('**/pom.xml', '**/package.json') }}
+          key: ${{ runner.os }}-node-modules-${{ hashFiles('**/pom.xml','**/package.json') }}
           restore-keys: |
-            ${{ runner.os}}-node_modules-
+            ${{ runner.os }}-node-modules-
 
-      # Standard test build (existing)
-      - name: Build ${{ matrix.java-version }}
-        run: mvn -B clean test
-
-      # -------- MUTATION TESTING ---------
-
-      - name: Run PIT mutation testing
-        run: mvn -B org.pitest:pitest-maven:mutationCoverage
-
-      - name: Extract mutation score
-        id: score
-        run: |
-          REPORT_FILE=$(ls target/pit-reports/*/mutations.xml | head -n 1)
-          SCORE=$(grep -oP 'mutationScore="\K[0-9.]+' "$REPORT_FILE" | head -n 1)
-          echo "score=$SCORE" >> $GITHUB_OUTPUT
-          echo "Mutation score found: $SCORE"
-
-      - name: Load baseline
-        id: baseline
-        run: |
-          if [ -f .mutation-baseline ]; then
-            BASELINE=$(cat .mutation-baseline)
-          else
-            BASELINE=0
-          fi
-          echo "baseline=$BASELINE" >> $GITHUB_OUTPUT
-          echo "Using baseline: $BASELINE"
-
-      - name: Compare score to baseline
-        id: compare
-        run: |
-          SCORE=${{ steps.score.outputs.score }}
-          BASELINE=${{ steps.baseline.outputs.baseline }}
-          
-          if (( $(echo "$SCORE < $BASELINE" | bc -l) )); then
-            echo "Mutation score worse than baseline."
-            exit 0   # success → workflow continues
-          else
-            echo "Score >= baseline → ok."
-            exit 1   # failure → skip rickroll
+      # Standard build + test
+      - name: Build & run tests
+        id: standard-build
+        run: mvn -B clean install
         continue-on-error: true
 
-      # RICKROLL IF SCORE WORSE THAN BASELINE
-      - name: Rickroll (mutation score regression)
-        if: steps.compare.outcome == 'success'
+      # Fun Rickroll if build fails
+      - name: Surprise Rickroll!
+        if: steps.standard-build.outcome == 'failure'
         run: |
-          echo "🎵 NEVER GONNA GIVE YOU UP 🎵"
-          echo "Mutation score dropped! You have been rickrolled 😭"
-          echo "👉 https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-          echo ""
-          echo "───────────────▄███████████▄────────"
-          echo "──────────────███████████████────────"
-          echo "──────────────███▀▀▀▀▀██▀▀▀▀▀██──────"
-          echo "──────────────██────────█─────██─────"
-          echo "──────────────██─████──█─████─██─────"
-          echo "──────────────██────────█─────██─────"
-          echo "──────────────███────█████────██─────"
-          echo "──────────────██████████████████─────"
+          echo "🚨 Build failed! Don't panic, but check this out..."
+          echo "🎵 A totally different Rickroll incoming 🎵"
+          echo "👉 https://www.youtube.com/watch?v=dQw4w9WgXcQ&ab_channel=RickAstley"
+          echo "::error::Remember: it's just code, have fun! 😎"
+          exit 1
 
-
-      # UPDATE BASELINE IF SCORE >= BASELINE
-      - name: Update mutation baseline
-        if: steps.compare.outcome != 'success'
+      # Mutation testing only on Java 24 + master branch
+      - name: Run mutation analysis and update baseline
+        if: |
+          success() &&
+          matrix.java-ver == '24' &&
+          github.event_name == 'push' &&
+          github.ref == 'refs/heads/master'
         run: |
-          echo "${{ steps.score.outputs.score }}" > .mutation-baseline
-          git config user.name "github-actions"
-          git config user.email "github-actions@github.com"
-          git add .mutation-baseline
-          git commit -m "Auto-update mutation baseline → ${{ steps.score.outputs.score }}"
-          git push
+          echo "🔍 Starting mutation testing for Graphhopper..."
+
+          # Baseline file (different name from other group)
+          MUTATION_BASE="pitest-baseline.txt"
+          if [ ! -f "$MUTATION_BASE" ]; then
+            echo "0" > "$MUTATION_BASE"
+          fi
+
+          PREV_SCORE=$(cat "$MUTATION_BASE" | tr -d '\n' | tr -d '\r')
+          echo "Previous mutation threshold: ${PREV_SCORE}%"
+
+          # Run PIT on core module with threshold
+          mvn -B -pl core org.pitest:pitest-maven:mutationCoverage -DmutationThreshold=$PREV_SCORE | tee pitest_run.log
+          PIT_STATUS=${PIPESTATUS[0]}
+
+          if [ $PIT_STATUS -ne 0 ]; then
+            echo "::error::Mutation score below threshold or PIT failed."
+            exit $PIT_STATUS
+          fi
+
+          # Extract new mutation score
+          SCORE_LINE=$(grep "Generated .* mutations Killed" pitest_run.log || true)
+          if [ -z "$SCORE_LINE" ]; then
+            echo "::error::Could not find mutation summary line."
+            exit 1
+          fi
+
+          CUR_SCORE=$(echo "$SCORE_LINE" | sed -E 's/.* \(([0-9]+)%\).*/\1/')
+
+          echo "Previous threshold: ${PREV_SCORE}%"
+          echo "Current mutation score: ${CUR_SCORE}%"
+
+          # Update baseline if improved
+          if [ "$CUR_SCORE" -gt "$PREV_SCORE" ]; then
+            echo "🎉 Mutation score improved! Updating baseline..."
+
+            git config --global user.name 'github-actions[bot]'
+            git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+
+            echo "$CUR_SCORE" > "$MUTATION_BASE"
+            git add "$MUTATION_BASE"
+            git commit -m "ci: auto-update mutation baseline to ${CUR_SCORE}%"
+            git pull --rebase origin master
+            git push origin HEAD:master
+          else
+            echo "No improvement. Baseline remains at ${PREV_SCORE}%."
