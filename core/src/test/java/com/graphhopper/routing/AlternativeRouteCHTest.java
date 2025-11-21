@@ -29,9 +29,6 @@ import com.graphhopper.storage.RoutingCHGraph;
 import com.graphhopper.storage.RoutingCHGraphImpl;
 import com.graphhopper.util.PMap;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.Test;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.List;
 
@@ -119,8 +116,4 @@ public class AlternativeRouteCHTest {
         // 4 -> 11 -> 12 -> 10 is not too long compared to 4 -> 10
     }
     
-     @Test
-    public void testFail() {
-        assertEquals(0,5);
-    }
 }
