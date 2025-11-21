@@ -29,6 +29,9 @@ import com.graphhopper.storage.RoutingCHGraph;
 import com.graphhopper.storage.RoutingCHGraphImpl;
 import com.graphhopper.util.PMap;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.List;
 
