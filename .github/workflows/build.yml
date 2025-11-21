@@ -3,7 +3,7 @@ name: Graphhopper Build & Mutation
 on: push
 
 permissions:
-  contents: write   # Needed to commit auto-updated mutation baseline
+  contents: write   
 
 jobs:
   compile-and-test:
@@ -14,18 +14,16 @@ jobs:
         java-ver: [ 24, 25-ea ]
 
     steps:
-      # Checkout code
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # Setup Java
       - name: Set up Java ${{ matrix.java-ver }}
         uses: actions/setup-java@v4
         with:
           java-version: ${{ matrix.java-ver }}
           distribution: temurin
 
-      # Cache Maven dependencies
+     
       - name: Cache Maven repository
         uses: actions/cache@v4
         with:
@@ -34,7 +32,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-maven-
 
-      # Cache Node / npm
+     
       - name: Cache web node folder
         uses: actions/cache@v4
         with:
@@ -51,13 +49,13 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-node-modules-
 
-      # Standard build + test
+     
       - name: Build & run tests
         id: standard-build
         run: mvn -B clean install
         continue-on-error: true
 
-      # Fun Rickroll if build fails
+     
       - name: Surprise Rickroll!
         if: steps.standard-build.outcome == 'failure'
         run: |
@@ -67,7 +65,6 @@ jobs:
           echo "::error::Remember: it's just code, have fun! 😎"
           exit 1
 
-      # Mutation testing only on Java 24 + master branch
       - name: Run mutation analysis and update baseline
         if: |
           success() &&
@@ -75,9 +72,9 @@ jobs:
           github.event_name == 'push' &&
           github.ref == 'refs/heads/master'
         run: |
-          echo "🔍 Starting mutation testing for Graphhopper..."
+          echo "Starting mutation testing..."
 
-          # Baseline file (different name from other group)
+          
           MUTATION_BASE="pitest-baseline.txt"
           if [ ! -f "$MUTATION_BASE" ]; then
             echo "0" > "$MUTATION_BASE"
