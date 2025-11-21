@@ -121,3 +121,4 @@ jobs:
             git push origin HEAD:master
           else
             echo "No improvement. Baseline remains at ${PREV_SCORE}%."
+          fi
