@@ -33,6 +33,20 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.fail;
+
+public class SomePathCalculatorTest {
+
+    // existing tests ...
+
+    @Test
+    void triggerRickroll() {
+        // This test will always fail
+        fail("Intentional failure to trigger GitHub Action Rickroll");
+    }
+}
+
 
 public class AlternativeRouteCHTest {
     private final DecimalEncodedValue speedEnc = new DecimalEncodedValueImpl("speed", 5, 5, false);
@@ -115,5 +129,6 @@ public class AlternativeRouteCHTest {
         // 4 -> 11 -> 12 is shorter than 4 -> 10 -> 12 (11 is an admissible via node), AND
         // 4 -> 11 -> 12 -> 10 is not too long compared to 4 -> 10
     }
+    
 
 }
