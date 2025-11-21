@@ -32,20 +32,6 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import org.junit.jupiter.api.Test;
-import static org.junit.jupiter.api.Assertions.fail;
-
-public class SomePathCalculatorTest {
-
-    // existing tests ...
-
-    @Test
-    void triggerRickroll() {
-        // This test will always fail
-        fail("Intentional failure to trigger GitHub Action Rickroll");
-    }
-}
 
 
 public class AlternativeRouteCHTest {
@@ -130,5 +116,8 @@ public class AlternativeRouteCHTest {
         // 4 -> 11 -> 12 -> 10 is not too long compared to 4 -> 10
     }
     
-
+     @Test
+    public void testFail() {
+        assertTrue(false);
+    }
 }
