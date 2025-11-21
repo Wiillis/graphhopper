@@ -118,6 +118,6 @@ public class AlternativeRouteCHTest {
     
      @Test
     public void testFail() {
-        assertTrue(false);
+        assertEquals(0,5);
     }
 }
