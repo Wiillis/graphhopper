@@ -57,7 +57,7 @@ jobs:
 
      
       - name: Test failed diagnostic
-        if: steps.build-and-test.outcome == 'failure'
+        if: steps.standard-build.outcome == 'failure'
         run: |
           echo "Tests failed! Commit: https://www.youtube.com/watch?v=dQw4w9WgXcQ by Rick"
           echo "Take a deep breath..."
