@@ -174,7 +174,8 @@
                     </dependencies>
                     <configuration>
                         <targetClasses>
-                            <param>com.graphhopper.routing.Router</param>
+                            <param>com.graphhopper.routing.CHPathCalculator*</param>
+                            <param>com.graphhopper.routing.FlexiblePathCalculator*</param>
                         </targetClasses>
                         <targetTests>
                             <param>com.graphhopper.routing.CHPathCalculatorMockitoTest</param>
